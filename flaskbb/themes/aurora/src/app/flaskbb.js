@@ -214,21 +214,31 @@ document.addEventListener("DOMContentLoaded", function (event) {
     );
 
     // listen on the action-checkall checkbox to un/check all
-    document.querySelectorAll(".action-checkall").forEach((el) =>
+    document.querySelectorAll(".action-checkall").forEach((el) => {
         el.addEventListener("change", (event) => {
             const cbs = document.querySelectorAll("input.action-checkbox");
             for (var i = 0; i < cbs.length; i++) {
                 cbs[i].checked = event.target.checked;
             }
         })
+    }
+    );
+
+    document.querySelectorAll(".action-checkbox").forEach((el) => {
+        el.addEventListener("click", (event) => {
+            event.stopPropagation()
+        })
+    }
     );
 
     // listen on set-checkbox to check the nearest checkbox
-    document.querySelectorAll(".set-checkbox").forEach((el) =>
+    document.querySelectorAll(".set-checkbox").forEach((el) => {
         el.addEventListener("click", (event) => {
+            event.preventDefault();
             const cb = el.querySelector("input.action-checkbox");
             cb.checked = !cb.checked;
         })
+    }
     );
 
     document.querySelectorAll("time").forEach((el) => {
