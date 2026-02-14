@@ -14,8 +14,10 @@ from __future__ import unicode_literals
 import collections
 import logging
 import os
+from typing import Any
 
 from alembic.util.exc import CommandError
+from sqlalchemy import func, select
 from sqlalchemy_utils.functions import create_database, database_exists
 
 from flaskbb.extensions import alembic, db, pluggy
@@ -26,17 +28,17 @@ from flaskbb.user.models import Group, User
 logger = logging.getLogger(__name__)
 
 
-def delete_settings_from_fixture(fixture):
+def delete_settings_from_fixture(fixture: Any):
     """Deletes the settings from a fixture from the database.
     Returns the deleted groups and settings.
 
     :param fixture: The fixture that should be deleted.
     """
-    deleted_settings = {}
+    deleted_settings: dict[SettingsGroup, list[Setting]] = {}
 
     for settingsgroup in fixture:
         group: SettingsGroup = db.session.execute(
-            db.select(SettingsGroup).filter_by(key=settingsgroup[0])
+            select(SettingsGroup).filter_by(key=settingsgroup[0])
         ).scalar_one()
         deleted_settings[group] = []
 
@@ -53,13 +55,13 @@ def delete_settings_from_fixture(fixture):
     return deleted_settings
 
 
-def create_settings_from_fixture(fixture):
+def create_settings_from_fixture(fixture: Any):
     """Inserts the settings from a fixture into the database.
     Returns the created groups and settings.
 
     :param fixture: The fixture which should inserted.
     """
-    created_settings = {}
+    created_settings: dict[SettingsGroup, list[Setting]] = {}
     for settingsgroup in fixture:
         group = SettingsGroup(
             key=settingsgroup[0],
@@ -87,7 +89,9 @@ def create_settings_from_fixture(fixture):
 
 
 def update_settings_from_fixture(
-    fixture, overwrite_group=False, overwrite_setting=False
+    fixture: Any,
+    overwrite_group: bool = False,
+    overwrite_setting: bool = False,
 ):
     """Updates the database settings from a fixture.
     Returns the updated groups and settings.
@@ -100,11 +104,11 @@ def update_settings_from_fixture(
                               setting if it already exists.
                               Defaults to ``False``.
     """
-    updated_settings = collections.defaultdict(list)
+    updated_settings: dict[SettingsGroup, list[Setting]] = collections.defaultdict(list)
 
     for settingsgroup in fixture:
         group = db.session.execute(
-            db.select(SettingsGroup).filter_by(key=settingsgroup[0])
+            select(SettingsGroup).filter_by(key=settingsgroup[0])
         ).scalar_one_or_none()
 
         if (group is not None and overwrite_group) or group is None:
@@ -122,11 +126,12 @@ def update_settings_from_fixture(
 
         for settings in settingsgroup[1]["settings"]:
             setting = db.session.execute(
-                db.select(Setting).filter_by(key=settings[0])
+                select(Setting).filter_by(key=settings[0])
             ).scalar_one_or_none()
 
+            setting_is_different = False
             if setting is not None:
-                setting_is_different = (
+                setting_is_different: bool = (
                     setting.value != settings[1]["value"]
                     or setting.value_type != settings[1]["value_type"]
                     or setting.name != settings[1]["name"]
@@ -172,7 +177,7 @@ def create_default_groups():
     """This will create the 5 default groups."""
     from flaskbb.fixtures.groups import fixture
 
-    result = []
+    result: list[Group] = []
     for key, value in fixture.items():
         group = Group(name=key)
 
@@ -184,7 +189,7 @@ def create_default_groups():
     return result
 
 
-def create_user(username, password, email, groupname):
+def create_user(username: str, password: str, email: str, groupname: str):
     """Creates a user.
     Returns the created user.
 
@@ -198,8 +203,8 @@ def create_user(username, password, email, groupname):
         group = Group.get_member_group()
     else:
         group = db.session.execute(
-            db.select(Group).filter(getattr(Group, groupname).is_(True))
-        ).scalar_one_or_none()
+            select(Group).filter(getattr(Group, groupname).is_(True))
+        ).scalar_one()
 
     user = User.create(
         username=username,
@@ -211,7 +216,7 @@ def create_user(username, password, email, groupname):
     return user
 
 
-def update_user(username, password, email, groupname):
+def update_user(username: str, password: str, email: str, groupname: str):
     """Update an existing user.
     Returns the updated user.
 
@@ -222,7 +227,7 @@ def update_user(username, password, email, groupname):
                       should belong to.
     """
     user = db.session.execute(
-        db.select(User).filter_by(username=username)
+        select(User).filter_by(username=username)
     ).scalar_one_or_none()
     if user is None:
         return None
@@ -231,12 +236,12 @@ def update_user(username, password, email, groupname):
         group = Group.get_member_group()
     else:
         group = db.session.execute(
-            db.select(Group).filter(getattr(Group, groupname).is_(True))
-        ).scalar_one_or_none()
+            select(Group).filter(getattr(Group, groupname).is_(True))
+        ).scalar_one()
 
     user.password = password
     user.email = email
-    user.primary_group = group
+    user.primary_group_id = group.id
     return user.save()
 
 
@@ -245,12 +250,12 @@ def create_welcome_forum():
     Returns True if it's created successfully.
     """
     user_count = db.session.execute(
-        db.select(db.func.count()).select_from(User)
+        db.select(func.count()).select_from(User)
     ).scalar_one()
     if user_count < 1:
         return False
 
-    user = db.session.execute(db.select(User).filter_by(id=1)).scalar_one_or_none()
+    user = db.session.execute(select(User).filter_by(id=1)).scalar_one_or_none()
 
     category = Category(title="My Category", position=1)
     category.save()
@@ -267,7 +272,13 @@ def create_welcome_forum():
     return True
 
 
-def create_test_data(users=2, categories=1, forums=1, topics=1, posts=1):
+def create_test_data(
+    users: int = 2,
+    categories: int = 1,
+    forums: int = 1,
+    topics: int = 1,
+    posts: int = 1,
+):
     """Creates 5 users, 2 categories and 2 forums in each category.
     It also creates a new topic topic in each forum with a post.
     Returns the amount of created users, categories, forums, topics and posts
@@ -294,8 +305,8 @@ def create_test_data(users=2, categories=1, forums=1, topics=1, posts=1):
         user.save()
         data_created["users"] += 1
 
-    user1 = db.session.execute(db.select(User).filter_by(id=1)).scalar_one_or_none()
-    user2 = db.session.execute(db.select(User).filter_by(id=2)).scalar_one_or_none()
+    user1 = db.session.execute(select(User).filter_by(id=1)).scalar_one_or_none()
+    user2 = db.session.execute(select(User).filter_by(id=2)).scalar_one_or_none()
 
     # create 2 categories
     with db.session.no_autoflush:
@@ -334,7 +345,7 @@ def create_test_data(users=2, categories=1, forums=1, topics=1, posts=1):
     return data_created
 
 
-def insert_bulk_data(topic_count=10, post_count=100):
+def insert_bulk_data(topic_count: int = 10, post_count: int = 100):
     """Creates a specified number of topics in the first forum with
     each topic containing a specified amount of posts.
     Returns the number of created topics and posts.
@@ -342,16 +353,16 @@ def insert_bulk_data(topic_count=10, post_count=100):
     :param topics: The amount of topics in the forum.
     :param posts: The number of posts in each topic.
     """
-    user1 = db.session.execute(db.select(User).where(User.id == 1)).scalar()
-    user2 = db.session.execute(db.select(User).where(User.id == 2)).scalar()
-    forum = db.session.execute(db.select(Forum).where(Forum.id == 1)).scalar()
+    user1 = db.session.execute(select(User).where(User.id == 1)).scalar()
+    user2 = db.session.execute(select(User).where(User.id == 2)).scalar()
+    forum = db.session.execute(select(Forum).where(Forum.id == 1)).scalar()
 
-    last_post = db.session.execute(db.select(Post).order_by(Post.id.desc())).scalar()
+    last_post = db.session.execute(select(Post).order_by(Post.id.desc())).scalar()
     last_post_id = 1 if last_post is None else last_post.id
 
     created_posts = 0
     created_topics = 0
-    posts = []
+    posts: list[Post] = []
 
     if not (user1 or user2 or forum):
         return False
@@ -386,7 +397,7 @@ def insert_bulk_data(topic_count=10, post_count=100):
     return created_topics, created_posts
 
 
-def create_latest_db(target="default@head"):
+def create_latest_db(target: str = "default@head"):
     """Creates the database including the schema using SQLAlchemy's
     db.create_all method instead of going through all the database revisions.
     The revision will be set to 'head' which indicates the latest alembic
@@ -401,7 +412,7 @@ def create_latest_db(target="default@head"):
     alembic.stamp(target=target)
 
 
-def has_migrations(plugin):
+def has_migrations(plugin: Any):
     migrations_path = os.path.join(plugin.__path__[0], "migrations")
     if os.path.exists(migrations_path) and len(os.listdir(migrations_path)) != 0:
         return True

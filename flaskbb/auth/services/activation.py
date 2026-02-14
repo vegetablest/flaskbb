@@ -27,7 +27,7 @@ class AccountActivator(_AccountActivator):
         self.token_serializer = token_serializer
         self.users = users
 
-    def initiate_account_activation(self, email):
+    def initiate_account_activation(self, email: str):
         user = db.session.execute(
             db.select(self.users).filter_by(email=email)
         ).scalar_one_or_none()

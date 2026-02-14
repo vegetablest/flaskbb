@@ -24,7 +24,7 @@ class FlaskBBConfig(MutableMapping[str, Any | None]):
     Settings cache.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: list[str], **kwargs: Any):
         self.update(dict(*args, **kwargs))
 
     @override
@@ -39,12 +39,15 @@ class FlaskBBConfig(MutableMapping[str, Any | None]):
     def __setitem__(self, key: str, value: Any):
         Setting.update({key.lower(): value})
 
+    @override
     def __delitem__(self, key: str):  # pragma: no cover
         pass
 
+    @override
     def __iter__(self):
         return iter(Setting.as_dict())
 
+    @override
     def __len__(self):
         return len(Setting.as_dict())
 

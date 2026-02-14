@@ -12,7 +12,7 @@ A module for all markup related stuff.
 import logging
 import re
 from collections.abc import Iterable
-from typing import Callable
+from typing import Any, Callable
 
 import mistune
 from flask import Flask, url_for
@@ -38,6 +38,7 @@ from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import get_lexer_by_name
 from pygments.util import ClassNotFound
+from typing_extensions import override
 
 from flaskbb.extensions import pluggy
 
@@ -90,10 +91,11 @@ DEFAULT_PLUGINS = [
 class FlaskBBRenderer(mistune.HTMLRenderer):
     """Mistune renderer that uses pygments to apply code highlighting."""
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any):
         super(FlaskBBRenderer, self).__init__(**kwargs)
 
-    def block_code(self, code: str, info: str | None = None):
+    @override
+    def block_code(self, code: str, info: str | None = None) -> str:
         if info:
             try:
                 lexer = get_lexer_by_name(info, stripall=True)
@@ -103,7 +105,7 @@ class FlaskBBRenderer(mistune.HTMLRenderer):
             lexer = None
         if not lexer:
             return "\n<pre><code>%s</code></pre>\n" % mistune.escape(code)
-        formatter = HtmlFormatter()
+        formatter = HtmlFormatter()  # pyright: ignore
         return highlight(code, lexer, formatter)
 
 
@@ -133,7 +135,7 @@ def flaskbb_jinja_directives(app: Flask):
 
 
 def make_renderer(
-    classes: tuple[type], plugins: Iterable[PluginRef] | None = None
+    classes: tuple[type] | list[type], plugins: Iterable[PluginRef] | None = None
 ) -> Callable[[str], Markup]:
     RenderCls = type("FlaskBBRenderer", tuple(classes), {})
 

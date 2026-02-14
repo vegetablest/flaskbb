@@ -35,12 +35,14 @@ class SelectAllPagination(Pagination):
     .. versionadded:: 3.0
     """
 
+    @t.override
     def _query_items(self) -> list[t.Any]:
         select = self._query_args["select"]
         select = select.limit(self.per_page).offset(self._query_offset)
         session = self._query_args["session"]
         return session.execute(select).all()
 
+    @t.override
     def _query_count(self) -> int:
         select = self._query_args["select"]
         sub = select.options(sa_orm.lazyload("*")).order_by(None).subquery()

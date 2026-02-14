@@ -28,7 +28,7 @@ from flask_allows2 import And, Permission
 from flask_babelplus import gettext as _
 from flask_login import current_user, login_required
 from pluggy import HookimplMarker
-from sqlalchemy import asc, desc, select
+from sqlalchemy import asc, desc
 
 from flaskbb.extensions import allows, db, pluggy
 from flaskbb.forum.forms import (
@@ -62,7 +62,7 @@ from flaskbb.utils.helpers import (
     time_diff,
     time_utcnow,
 )
-from flaskbb.utils.queries import first_or_404, hidden, paginate
+from flaskbb.utils.queries import first_or_404, paginate
 from flaskbb.utils.requirements import (
     CanAccessForum,
     CanDeletePost,

@@ -12,6 +12,7 @@ in FlaskBB
 
 import logging
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 import attr
 from flask_babelplus import gettext as _
@@ -28,6 +29,11 @@ from ...core.auth.authentication import (
 from ...extensions import db
 from ...user.models import User
 from ...utils.helpers import time_utcnow
+
+if TYPE_CHECKING:
+    from flask_sqlalchemy.session import Session
+
+    from flaskbb.plugins.manager import FlaskBBPluginManager
 
 logger = logging.getLogger(__name__)
 
@@ -88,7 +94,7 @@ class DefaultFlaskBBAuthProvider(AuthenticationProvider):
     in response time from not matching a password hash.
     """
 
-    def authenticate(self, identifier, secret):
+    def authenticate(self, identifier: str, secret: str):
         user = db.session.execute(
             db.select(User).filter(
                 db.or_(User.username == identifier, User.email == identifier)
@@ -110,7 +116,7 @@ class MarkFailedLogin(AuthenticationFailureHandler):
     last failed date when it happened.
     """
 
-    def handle_authentication_failure(self, identifier):
+    def handle_authentication_failure(self, identifier: str):
         user = db.session.execute(
             db.select(User).filter(
                 db.or_(User.username == identifier, User.email == identifier)
@@ -128,7 +134,7 @@ class BlockUnactivatedUser(PostAuthenticationHandler):
     authentication check but has not actually activated their account yet.
     """
 
-    def handle_post_auth(self, user):
+    def handle_post_auth(self, user: "User"):
         if not user.activated:  # pragma: no branch
             raise StopAuthentication(
                 _(
@@ -145,7 +151,7 @@ class ClearFailedLogins(PostAuthenticationHandler):
     account.
     """
 
-    def handle_post_auth(self, user):
+    def handle_post_auth(self, user: "User"):
         user.login_attempts = 0
 
 
@@ -155,11 +161,11 @@ class PluginAuthenticationManager(AuthenticationManager):
     process. This is the default authentication manager for FlaskBB.
     """
 
-    def __init__(self, plugin_manager, session):
+    def __init__(self, plugin_manager: "FlaskBBPluginManager", session: Session):
         self.plugin_manager = plugin_manager
         self.session = session
 
-    def authenticate(self, identifier, secret):
+    def authenticate(self, identifier: str, secret: str):
         try:
             user = self.plugin_manager.hook.flaskbb_authenticate(
                 identifier=identifier, secret=secret

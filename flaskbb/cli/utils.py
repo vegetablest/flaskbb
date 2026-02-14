@@ -10,13 +10,16 @@ commands.
 :license: BSD, see LICENSE for more details.
 """
 
+import importlib.metadata
 import os
 import re
 import sys
+from typing import IO, Any, override
 
 import click
-from flask import __version__ as flask_version
+from click._compat import get_text_stderr
 from flask_themes2 import get_theme
+from jinja2 import Template
 
 from flaskbb import __version__
 from flaskbb.extensions import pluggy
@@ -32,13 +35,14 @@ class FlaskBBCLIError(click.ClickException):
     :param styles: The style kwargs which should be forwarded to click.secho.
     """
 
-    def __init__(self, message, **styles):
+    def __init__(self, message: str, **styles: Any):
         click.ClickException.__init__(self, message)
         self.styles = styles
 
-    def show(self, file=None):
+    @override
+    def show(self, file: IO[Any] | None = None):
         if file is None:
-            file = click._compat.get_text_stderr()
+            file = get_text_stderr()
         click.secho("error: %s" % self.format_message(), file=file, **self.styles)
 
 
@@ -50,18 +54,22 @@ class EmailType(click.ParamType):
 
     name = "email"
 
-    def convert(self, value, param, ctx):
+    @override
+    def convert(
+        self, value: str, param: click.Parameter | None, ctx: click.Context | None
+    ):
         # Exact match
         if re.match(_email_regex, value):
             return value
         else:
             self.fail(("invalid email: %s" % value), param, ctx)
 
+    @override
     def __repr__(self):
         return "email"
 
 
-def validate_plugin(plugin):
+def validate_plugin(plugin: str):
     """Checks if a plugin is installed.
     TODO: Figure out how to use this in a callback. Doesn't work because
           the appcontext can't be found and using with_appcontext doesn't
@@ -74,7 +82,7 @@ def validate_plugin(plugin):
     return True
 
 
-def validate_theme(theme):
+def validate_theme(theme: str):
     """Checks if a theme is installed."""
     try:
         get_theme(theme)
@@ -82,10 +90,10 @@ def validate_theme(theme):
         raise FlaskBBCLIError("Theme {} not found.".format(theme), fg="red")
 
 
-def get_cookiecutter():
+def get_cookiecutter() -> object:
     cookiecutter_available = False
     try:
-        from cookiecutter.main import cookiecutter  # noqa
+        from cookiecutter.main import cookiecutter  # pyright: ignore
 
         cookiecutter_available = True
     except ImportError:
@@ -94,10 +102,10 @@ def get_cookiecutter():
     if not cookiecutter_available:
         raise FlaskBBCLIError(
             "Can't continue because cookiecutter is not installed. "
-            "You can install it with 'pip install cookiecutter'.",
+            + "You can install it with 'pip install cookiecutter'.",
             fg="red",
         )
-    return cookiecutter
+    return cookiecutter  # pyright: ignore
 
 
 def get_version(ctx: click.Context, param: str | None, value: str | None) -> None:
@@ -110,7 +118,7 @@ def get_version(ctx: click.Context, param: str | None, value: str | None) -> Non
         message
         % {
             "version": __version__,
-            "flask_version": flask_version,
+            "flask_version": importlib.metadata.version("flask"),
             "python_version": sys.version.split("\n")[0],
         },
         color=ctx.color,
@@ -118,7 +126,13 @@ def get_version(ctx: click.Context, param: str | None, value: str | None) -> Non
     ctx.exit()
 
 
-def prompt_save_user(username, email, password, group, only_update=False):
+def prompt_save_user(
+    username: str | None,
+    email: str | None,
+    password: str | None,
+    group: str | None,
+    only_update: bool = False,
+):
     if not username:
         username = click.prompt(
             click.style("Username", fg="magenta"),
@@ -143,11 +157,11 @@ def prompt_save_user(username, email, password, group, only_update=False):
         )
 
     if only_update:
-        return update_user(username, password, email, group)
-    return create_user(username, password, email, group)
+        return update_user(username, password, email, group)  # pyright: ignore
+    return create_user(username, password, email, group)  # # pyright: ignore
 
 
-def prompt_config_path(config_path):
+def prompt_config_path(config_path: str):
     """Asks for a config path. If the path exists it will ask the user
     for a new path until a he enters a path that doesn't exist.
 
@@ -175,7 +189,9 @@ def prompt_config_path(config_path):
     return config_path
 
 
-def write_config(config, config_template, config_path):
+def write_config(
+    config: dict[str, bool | str | int], config_template: Template, config_path: str
+):
     """Writes a new config file based upon the config template.
 
     :param config: A dict containing all the key/value pairs which should be

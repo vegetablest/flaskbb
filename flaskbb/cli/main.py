@@ -15,7 +15,7 @@ import os
 import sys
 import time
 import traceback
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, override
 
 import click
@@ -427,7 +427,9 @@ def list_urls(order_by: str):
     max_endpoint_len = max(len(rule.endpoint) for rule in rules)
     max_endpoint_len = max(max_endpoint_len, len("Endpoint"))
 
-    max_method_len = max(len(", ".join(rule.methods)) for rule in rules)
+    max_method_len = max(
+        len(", ".join(rule.methods if rule.methods else [])) for rule in rules
+    )
     max_method_len = max(max_method_len, len("Methods"))
 
     column_header_len = max_rule_len + max_endpoint_len + max_method_len + 4
@@ -443,7 +445,7 @@ def list_urls(order_by: str):
     click.secho("=" * column_header_len, bold=True)
 
     for rule in rules:
-        methods = ", ".join(rule.methods)
+        methods = ", ".join(rule.methods if rule.methods else [])
         click.echo(column_template.format(rule.rule, rule.endpoint, methods))
 
 
@@ -460,7 +462,7 @@ def list_urls(order_by: str):
     "-o",
     required=False,
     help="The path where the config file will be saved at. "
-    "Defaults to the flaskbb's root folder.",
+    + "Defaults to the flaskbb's root folder.",
 )
 @click.option(
     "--force",
@@ -509,7 +511,7 @@ def generate_config(development: bool, output: str | None, force: bool):
         "mail_admin_address": "admin@yourdomain",
         "secret_key": binascii.hexlify(os.urandom(24)).decode(),
         "csrf_secret_key": binascii.hexlify(os.urandom(24)).decode(),
-        "timestamp": datetime.utcnow().strftime("%A, %d. %B %Y at %H:%M"),
+        "timestamp": datetime.now(UTC).strftime("%A, %d. %B %Y at %H:%M"),
         "log_config_path": "",
         "deprecation_level": "default",
     }
@@ -531,10 +533,10 @@ def generate_config(development: bool, output: str | None, force: bool):
 
     # SERVER_NAME
     click.secho(
-        "The name and port number of the exposed server.\n"
-        "If FlaskBB is accesible on port 80 you can just omit the "
-        "port.\n For example, if FlaskBB is accessible via "
-        "example.org:8080 than this is also what you would set here.",
+        """The name and port number of the exposed server.\n
+        If FlaskBB is accesible on port 80 you can just omit the
+        port.\nFor example, if FlaskBB is accessible via
+        example.org:8080 than this is also what you would set here.""",
         fg="cyan",
     )
     default_conf["server_name"] = click.prompt(
@@ -546,15 +548,16 @@ def generate_config(development: bool, output: str | None, force: bool):
     # HTTPS or HTTP
     click.secho("Is HTTPS (recommended) or HTTP used for to serve FlaskBB?", fg="cyan")
     default_conf["use_https"] = click.confirm(
-        click.style("Use HTTPS?", fg="magenta"), default=default_conf.get("use_https")
+        click.style("Use HTTPS?", fg="magenta"),
+        default=default_conf.get("use_https"),
     )
 
     # SQLALCHEMY_DATABASE_URI
     click.secho(
-        "For Postgres use:\n"
-        "    postgresql://flaskbb@localhost:5432/flaskbb\n"
-        "For more options see the SQLAlchemy docs:\n"
-        "    http://docs.sqlalchemy.org/en/latest/core/engines.html",
+        """For Postgres use:\n
+            postgresql://flaskbb@localhost:5432/flaskbb\n
+        For more options see the SQLAlchemy docs:\n
+            http://docs.sqlalchemy.org/en/latest/core/engines.html""",
         fg="cyan",
     )
     default_conf["database_uri"] = click.prompt(
@@ -564,8 +567,7 @@ def generate_config(development: bool, output: str | None, force: bool):
 
     # REDIS_ENABLED
     click.secho(
-        "Redis will be used for things such as the task queue, "
-        "caching and rate limiting.",
+        "Redis will be used for things such as the task queue, caching and rate limiting.",
         fg="cyan",
     )
     default_conf["redis_enabled"] = click.confirm(
@@ -583,8 +585,8 @@ def generate_config(development: bool, output: str | None, force: bool):
 
     # MAIL_SERVER
     click.secho(
-        "To use 'localhost' make sure that you have sendmail or\n"
-        "something similar installed. Gmail is also supprted.",
+        """To use 'localhost' make sure that you have sendmail or\n
+        something similar installed. Gmail is also supprted.""",
         fg="cyan",
     )
     default_conf["mail_server"] = click.prompt(
@@ -600,7 +602,7 @@ def generate_config(development: bool, output: str | None, force: bool):
     # MAIL_USE_TLS
     click.secho(
         "If you are using a local SMTP server like sendmail this is "
-        "not needed. For external servers it is required.",
+        + "not needed. For external servers it is required.",
         fg="cyan",
     )
     default_conf["mail_use_tls"] = click.confirm(
@@ -615,8 +617,8 @@ def generate_config(development: bool, output: str | None, force: bool):
     )
     # MAIL_USERNAME
     click.secho(
-        "Not needed if you are using a local smtp server.\nFor gmail "
-        "you have to put in your email address here.",
+        "Not needed if you are using a local smtp server.\n"
+        + "For gmail you have to put in your email address here.",
         fg="cyan",
     )
     default_conf["mail_username"] = click.prompt(
@@ -625,8 +627,8 @@ def generate_config(development: bool, output: str | None, force: bool):
     )
     # MAIL_PASSWORD
     click.secho(
-        "Not needed if you are using a local smtp server.\nFor gmail "
-        "you have to put in your gmail password here.",
+        "Not needed if you are using a local smtp server.\n"
+        + "For gmail you have to put in your gmail password here.",
         fg="cyan",
     )
     default_conf["mail_password"] = click.prompt(
@@ -636,7 +638,7 @@ def generate_config(development: bool, output: str | None, force: bool):
     # MAIL_DEFAULT_SENDER
     click.secho(
         "The name of the sender. You probably want to change it to "
-        "something like '<your_community> Mailer'.",
+        + "something like '<your_community> Mailer'.",
         fg="cyan",
     )
     default_conf["mail_sender_name"] = click.prompt(
@@ -645,7 +647,7 @@ def generate_config(development: bool, output: str | None, force: bool):
     )
     click.secho(
         "On localhost you want to use a noreply address here. "
-        "Use your email address for gmail here.",
+        + "Use your email address for gmail here.",
         fg="cyan",
     )
     default_conf["mail_sender_address"] = click.prompt(
@@ -655,7 +657,7 @@ def generate_config(development: bool, output: str | None, force: bool):
     # ADMINS
     click.secho(
         "Logs and important system messages are sent to this address. "
-        "Use your email address for gmail here.",
+        + "Use your email address for gmail here.",
         fg="cyan",
     )
     default_conf["mail_admin_address"] = click.prompt(
@@ -664,9 +666,9 @@ def generate_config(development: bool, output: str | None, force: bool):
     )
 
     click.secho(
-        "Optional filepath to load a logging configuration file from. "
-        "See the Python logging documentation for more detail.\n"
-        "\thttps://docs.python.org/library/logging.config.html#logging-config-fileformat",  # noqa
+        """Optional filepath to load a logging configuration file from.
+        See the Python logging documentation for more detail.\n
+        \thttps://docs.python.org/library/logging.config.html#logging-config-fileformat""",  # noqa
         fg="cyan",
     )
     default_conf["log_config_path"] = click.prompt(
@@ -696,11 +698,8 @@ def generate_config(development: bool, output: str | None, force: bool):
 
     # Finished
     click.secho(
-        "The configuration file has been saved to:\n{cfg}\n"
-        "Feel free to adjust it as needed.".format(cfg=config_path),
+        f"The configuration file has been saved to:\n{config_path}\n Feel free to adjust it as needed.",
         fg="blue",
         bold=True,
     )
-    click.secho(
-        "Usage: \nflaskbb --config {cfg} run".format(cfg=config_path), fg="green"
-    )
+    click.secho(f"Usage: \nflaskbb --config {config_path} run", fg="green")

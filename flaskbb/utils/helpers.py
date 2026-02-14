@@ -19,7 +19,8 @@ import time
 from collections.abc import Iterable, Sequence
 from datetime import datetime, timedelta
 from functools import wraps
-from typing import TYPE_CHECKING, Any, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Callable, Literal, TypeVar, overload
+from wsgiref.types import WSGIEnvironment
 
 import requests
 import unidecode
@@ -28,9 +29,22 @@ from babel.dates import format_date as babel_format_date
 from babel.dates import format_datetime as babel_format_datetime
 from babel.dates import format_time as babel_format_time
 from babel.dates import format_timedelta as babel_format_timedelta
-from flask import Flask, current_app, flash, g, redirect, request, session, url_for
+from flask import (
+    Blueprint,
+    Flask,
+    Response,
+    current_app,
+    flash,
+    g,
+    redirect,
+    request,
+    session,
+    url_for,
+)
+from flask.typing import RouteCallable
 from flask_allows2 import Permission
 from flask_babelplus import lazy_gettext as _
+from flask_limiter import Limiter
 from flask_login import current_user
 from flask_themes2 import get_themes_list, render_theme_template
 from markupsafe import Markup
@@ -56,7 +70,7 @@ T = TypeVar("T")
 _punct_re = re.compile(r'[\t !"#$%&\'()*\-/<=>?@\[\\\]^_`{|},.]+')
 
 
-def to_bytes(text: str | bytes, encoding: str = "utf-8"):
+def to_bytes(text: str | int | bytes, encoding: str = "utf-8"):
     """Transform string to bytes."""
     if isinstance(text, str):
         text = text.encode(encoding)
@@ -372,7 +386,7 @@ def topic_is_unread(
     return topicsread.last_read < topic.last_updated
 
 
-def mark_online(user_id: str, guest=False):  # pragma: no cover
+def mark_online(user_id: str | int | None, guest: bool = False):  # pragma: no cover
     """Marks a user as online
 
     :param user_id: The id from the user who should be marked as online
@@ -382,24 +396,27 @@ def mark_online(user_id: str, guest=False):  # pragma: no cover
 
     Ref: http://flask.pocoo.org/snippets/71/
     """
-    user_id = to_bytes(user_id)
+    if user_id is None:
+        return
+
+    user = to_bytes(user_id)
     now = int(time.time())
     expires = now + (flaskbb_config["ONLINE_LAST_MINUTES"] * 60) + 10
     if guest:
         all_users_key = "online-guests/%d" % (now // 60)
-        user_key = "guest-activity/%s" % user_id
+        user_key = "guest-activity/%s" % user
     else:
         all_users_key = "online-users/%d" % (now // 60)
-        user_key = "user-activity/%s" % user_id
+        user_key = "user-activity/%s" % user
     p = redis_store.pipeline()
-    p.sadd(all_users_key, user_id)
+    p.sadd(all_users_key, user)
     p.set(user_key, now)
     p.expireat(all_users_key, expires)
     p.expireat(user_key, expires)
     p.execute()
 
 
-def get_online_users(guest=False):  # pragma: no cover
+def get_online_users(guest: bool = False):  # pragma: no cover
     """Returns all online users within a specified time range
 
     :param guest: If True, it will return the online guests
@@ -416,7 +433,7 @@ def get_online_users(guest=False):  # pragma: no cover
     return [to_unicode(u) for u in users]
 
 
-def crop_title(title, length=None, suffix="..."):
+def crop_title(title: str, length: int | None = None, suffix: str = "..."):
     """Crops the title to a specified length
 
     :param title: The title that should be cropped
@@ -438,6 +455,8 @@ def is_online(user: User):
 
     :param user: The user who needs to be checked
     """
+    if not user.lastseen:
+        return False
     return user.lastseen >= time_diff()
 
 
@@ -463,7 +482,10 @@ def _get_user_locale():
 
 
 # http://babel.pocoo.org/en/latest/api/dates.html#babel.dates.format_time
-def _format_html_time_tag(datetime, what_to_display):
+def _format_html_time_tag(
+    datetime: datetime,
+    what_to_display: Literal["date-only", "time-only", "date-and-time"],
+):
     if what_to_display == "date-only":
         content = babel_format_date(datetime, locale=_get_user_locale())
     elif what_to_display == "time-only":
@@ -485,7 +507,7 @@ def _format_html_time_tag(datetime, what_to_display):
     )
 
 
-def format_datetime(datetime):
+def format_datetime(datetime: datetime):
     """Format the datetime for usage in templates.
 
     :param value: The datetime object that should be formatted
@@ -494,7 +516,7 @@ def format_datetime(datetime):
     return _format_html_time_tag(datetime, "date-and-time")
 
 
-def format_date(datetime):
+def format_date(datetime: datetime):
     """Format the datetime for usage in templates, keeping only the date.
 
     :param value: The datetime object that should be formatted
@@ -503,7 +525,7 @@ def format_date(datetime):
     return _format_html_time_tag(datetime, "date-only")
 
 
-def format_time(datetime):
+def format_time(datetime: datetime):
     """Format the datetime for usage in templates, keeping only the time.
 
     :param value: The datetime object that should be formatted
@@ -512,7 +534,7 @@ def format_time(datetime):
     return _format_html_time_tag(datetime, "time-only")
 
 
-def format_timedelta(delta, **kwargs):
+def format_timedelta(delta: timedelta, **kwargs: Any):
     """Wrapper around babel's format_timedelta to make it user language
     aware.
     """
@@ -531,7 +553,7 @@ def time_since(time: datetime | None):  # pragma: no cover
     return format_timedelta(delta, add_direction=True)
 
 
-def format_quote(username, content):
+def format_quote(username: str, content: str):
     """Returns a formatted quote depending on the markup language.
 
     :param username: The username of a user.
@@ -546,7 +568,7 @@ def format_quote(username, content):
     return quote
 
 
-def get_image_info(url):
+def get_image_info(url: str):
     """Returns the content-type, image size (kb), height and width of
     an image without fully downloading it.
 
@@ -585,7 +607,7 @@ def get_image_info(url):
 
         parser.feed(data)
         if parser.image:
-            image_data["content_type"] = parser.image.format
+            image_data["content_type"] = parser.image.format or ""
             image_data["width"] = parser.image.size[0]
             image_data["height"] = parser.image.size[1]
             break
@@ -593,7 +615,7 @@ def get_image_info(url):
     return image_data
 
 
-def check_image(url):
+def check_image(url: str):
     """A little wrapper for the :func:`get_image_info` function.
     If the image doesn't match the ``flaskbb_config`` settings it will
     return a tuple with a the first value is the custom error message and
@@ -649,7 +671,7 @@ def check_image(url):
     return error, True
 
 
-def get_alembic_locations(plugin_dirs) -> list[tuple[str, str]]:
+def get_alembic_locations(plugin_dirs: list[str]) -> list[tuple[str, ...]]:
     """Returns a tuple with (branchname, plugin_dir) combinations.
     The branchname is the name of plugin directory which should also be
     the unique identifier of the plugin.
@@ -795,11 +817,11 @@ class ReverseProxyPathFix(object):
     :param force_https: Force HTTPS on all routes. Defaults to ``False``.
     """
 
-    def __init__(self, app, force_https=False):
+    def __init__(self, app: Flask, force_https: bool = False):
         self.app = app
         self.force_https = force_https
 
-    def __call__(self, environ, start_response):
+    def __call__(self, environ: WSGIEnvironment, start_response: Response):
         script_name = environ.get("HTTP_X_SCRIPT_NAME", "")
         if script_name:
             environ["SCRIPT_NAME"] = script_name
@@ -841,9 +863,9 @@ def real(obj):
     return obj
 
 
-def anonymous_required(f):
+def anonymous_required(f: Any):
     @wraps(f)
-    def wrapper(*a, **k):
+    def wrapper(*a: Any, **k: Any):
         if current_user is not None and current_user.is_authenticated:
             return redirect_or_next(url_for("forum.index"))
         return f(*a, **k)
@@ -851,7 +873,7 @@ def anonymous_required(f):
     return wrapper
 
 
-def enforce_recaptcha(limiter):
+def enforce_recaptcha(limiter: Limiter):
     current_limit = getattr(g, "view_rate_limit", None)
     login_recaptcha = False
     if current_limit is not None:
@@ -861,9 +883,9 @@ def enforce_recaptcha(limiter):
     return login_recaptcha
 
 
-def registration_enabled(f):
+def registration_enabled(f: Any):
     @wraps(f)
-    def wrapper(*a, **k):
+    def wrapper(*a: Any, **k: Any):
         if not flaskbb_config["REGISTRATION_ENABLED"]:
             flash(_("The registration has been disabled."), "info")
             return redirect_or_next(url_for("forum.index"))
@@ -872,9 +894,9 @@ def registration_enabled(f):
     return wrapper
 
 
-def requires_unactivated(f):
+def requires_unactivated(f: Any):
     @wraps(f)
-    def wrapper(*a, **k):
+    def wrapper(*a: Any, **k: Any):
         if current_user.is_active or not flaskbb_config["ACTIVATE_ACCOUNT"]:
             flash(_("This account is already activated."), "info")
             return redirect(url_for("forum.index"))
@@ -883,20 +905,29 @@ def requires_unactivated(f):
     return wrapper
 
 
-def register_view(bp_or_app, routes, view_func, *args, **kwargs):
+def register_view(
+    bp_or_app: Blueprint | Flask,
+    routes: list[str],
+    view_func: RouteCallable,
+    *args: Any,
+    **kwargs: Any,
+):
     for route in routes:
         bp_or_app.add_url_rule(route, view_func=view_func, *args, **kwargs)
 
 
 class FlashAndRedirect(object):
-    def __init__(self, message, level, endpoint):
+    def __init__(self, message: str, level: str, endpoint: str | Callable[..., str]):
         # need to reassign to avoid capturing the reassigned endpoint
         # in the generated closure, otherwise bad things happen at resolution
         if not callable(endpoint):
             # discard args and kwargs and just go to the endpoint
             # this probably isn't *100%* correct behavior in case we need
             # to add query params on...
-            endpoint_ = lambda *a, **k: url_for(endpoint)  # noqa
+            def create_endpoint(*a: Any, **k: Any) -> str:
+                return url_for(endpoint)
+
+            endpoint_ = create_endpoint
         else:
             endpoint_ = endpoint
 
@@ -904,6 +935,6 @@ class FlashAndRedirect(object):
         self._level = level
         self._endpoint = endpoint_
 
-    def __call__(self, *a, **k):
+    def __call__(self, *a: Any, **k: Any):
         flash(self._message, self._level)
         return redirect(self._endpoint(*a, **k))

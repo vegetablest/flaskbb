@@ -95,13 +95,13 @@ class Group(db.Model, CRUDMixin):
         ).all()
 
     @classmethod
-    def get_guest_group(cls):
+    def get_guest_group(cls) -> "Group":
         return db.session.execute(
             db.select(cls).filter(cls.guest.is_(True))
-        ).scalar_one_or_none()
+        ).scalar_one()
 
     @classmethod
-    def get_member_group(cls):
+    def get_member_group(cls) -> "Group":
         """Returns the first member group."""
         return db.session.execute(
             db.select(cls).filter(
@@ -111,7 +111,7 @@ class Group(db.Model, CRUDMixin):
                 cls.guest.is_(False),
                 cls.banned.is_(False),
             )
-        ).scalar_one_or_none()
+        ).scalar_one()
 
 
 class User(db.Model, UserMixin, CRUDMixin):

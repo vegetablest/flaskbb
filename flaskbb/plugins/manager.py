@@ -207,6 +207,9 @@ class FlaskBBPluginManager(pluggy.PluginManager):
         logger.info(f"Loaded {count} plugins for entrypoint {group}")
         return count
 
+    def get_plugin_path(self, name: str) -> str:
+        return self.get_plugin(name).__path__[0]  # pyright: ignore
+
     def get_metadata(self, name: str):
         """Returns the metadata for a given name."""
         return self._plugin_metadata.get(name)

@@ -10,6 +10,7 @@ This module adds the functionality to send emails
 """
 
 import logging
+from typing import Any
 
 from flask import render_template
 from flask_babelplus import lazy_gettext as _
@@ -21,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 @celery.task
-def send_reset_token(token, username, email):
+def send_reset_token(token: str, username: str, email: str):
     """Sends the reset token to the user's email address.
 
     :param token: The token to send to the user
@@ -41,7 +42,7 @@ def send_reset_token(token, username, email):
 
 
 @celery.task
-def send_activation_token(token, username, email):
+def send_activation_token(token: str, username: str, email: str):
     """Sends the activation token to the user's email address.
 
     :param token: The token to send to the user
@@ -61,11 +62,17 @@ def send_activation_token(token, username, email):
 
 
 @celery.task
-def send_async_email(*args, **kwargs):
+def send_async_email(*args: Any, **kwargs: Any):
     send_email(*args, **kwargs)
 
 
-def send_email(subject, recipients, text_body, html_body, sender=None):
+def send_email(
+    subject: str,
+    recipients: list[str | tuple[str, str]],
+    text_body: str,
+    html_body: str,
+    sender: str | tuple[str, str] | None = None,
+):
     """Sends an email to the given recipients.
 
     :param subject: The subject of the email.

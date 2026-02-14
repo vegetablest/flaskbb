@@ -12,8 +12,10 @@ This module contains the translation Domain used by FlaskBB.
 import logging
 import os
 import subprocess
+from typing import override
 
 import babel
+import babel.support
 from flask import Flask, current_app
 from flask_babelplus import Domain, get_locale
 from flask_babelplus.utils import get_state
@@ -32,6 +34,7 @@ class FlaskBBDomain(Domain):
         with self.app.app_context():
             self.plugin_translations = pluggy.hook.flaskbb_load_translations()
 
+    @override
     def get_translations(self):
         """Returns the correct gettext translations that should be used for
         this request.  This will never fail and return a dummy translation
@@ -68,7 +71,7 @@ class FlaskBBDomain(Domain):
         return translations
 
 
-def update_translations(include_plugins=False):
+def update_translations(include_plugins: bool = False):
     """Updates all translations.
 
     :param include_plugins: If set to `True` it will also update the
@@ -97,7 +100,7 @@ def update_translations(include_plugins=False):
             update_plugin_translations(plugin)
 
 
-def add_translations(translation):
+def add_translations(translation: str):
     """Adds a new language to the translations.
 
     :param translation: The short name of the translation
@@ -133,7 +136,7 @@ def add_translations(translation):
     )
 
 
-def compile_translations(include_plugins=False):
+def compile_translations(include_plugins: bool = False):
     """Compiles all translations.
 
     :param include_plugins: If set to `True` it will also compile the
@@ -147,15 +150,14 @@ def compile_translations(include_plugins=False):
             compile_plugin_translations(plugin)
 
 
-def add_plugin_translations(plugin, translation):
+def add_plugin_translations(plugin: str, translation: str):
     """Adds a new language to the plugin translations.
 
     :param plugin: The plugins identifier.
     :param translation: The short name of the translation
                         like ``en`` or ``de_AT``.
     """
-    plugin_folder = pluggy.get_plugin(plugin).__path__[0]
-    translations_folder = os.path.join(plugin_folder, "translations")
+    translations_folder = os.path.join(pluggy.get_plugin_path(plugin), "translations")
     source_file = os.path.join(translations_folder, "messages.pot")
 
     subprocess.call(
@@ -168,7 +170,7 @@ def add_plugin_translations(plugin, translation):
             "lazy_gettext",
             "-o",
             source_file,
-            plugin_folder,
+            pluggy.get_plugin_path(plugin),
         ]
     )
     subprocess.call(
@@ -185,14 +187,13 @@ def add_plugin_translations(plugin, translation):
     )
 
 
-def update_plugin_translations(plugin):
+def update_plugin_translations(plugin: str):
     """Updates the plugin translations.
     Returns ``False`` if no translations for this plugin exists.
 
     :param plugin: The plugins identifier
     """
-    plugin_folder = pluggy.get_plugin(plugin).__path__[0]
-    translations_folder = os.path.join(plugin_folder, "translations")
+    translations_folder = os.path.join(pluggy.get_plugin_path(plugin), "translations")
     source_file = os.path.join(translations_folder, "messages.pot")
 
     if not os.path.exists(source_file):
@@ -208,20 +209,19 @@ def update_plugin_translations(plugin):
             "lazy_gettext",
             "-o",
             source_file,
-            plugin_folder,
+            pluggy.get_plugin_path(plugin),
         ]
     )
     subprocess.call(["pybabel", "update", "-i", source_file, "-d", translations_folder])
 
 
-def compile_plugin_translations(plugin):
+def compile_plugin_translations(plugin: str):
     """Compile the plugin translations.
     Returns ``False`` if no translations for this plugin exists.
 
     :param plugin: The plugins identifier
     """
-    plugin_folder = pluggy.get_plugin(plugin).__path__[0]
-    translations_folder = os.path.join(plugin_folder, "translations")
+    translations_folder = os.path.join(pluggy.get_plugin_path(plugin), "translations")
 
     if not os.path.exists(translations_folder):
         return False

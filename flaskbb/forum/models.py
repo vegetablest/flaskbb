@@ -256,7 +256,7 @@ class Post(HideableCRUDMixin, db.Model):
         self,
         content: str | None = None,
         user: "User | None" = None,
-        topic: "Topic | None" = None,
+        topic: "Topic | int | None" = None,
     ):
         """Creates a post object with some initial values.
 

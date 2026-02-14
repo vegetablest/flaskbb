@@ -10,6 +10,10 @@ in FlaskBB
 """
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from flaskbb.user.models import User
 
 
 class AccountActivator(ABC):
@@ -19,7 +23,7 @@ class AccountActivator(ABC):
     """
 
     @abstractmethod
-    def initiate_account_activation(self, user):
+    def initiate_account_activation(self, user: "User"):
         """
         This method is abstract.
 
@@ -40,7 +44,7 @@ class AccountActivator(ABC):
         pass
 
     @abstractmethod
-    def activate_account(self, token):
+    def activate_account(self, token: str):
         """
         This method is abstract.
 

@@ -18,7 +18,7 @@ class ResetPasswordService(ABC):
     """
 
     @abstractmethod
-    def initiate_password_reset(self, email):
+    def initiate_password_reset(self, email: str):
         """
         This method is abstract.
 
@@ -34,7 +34,7 @@ class ResetPasswordService(ABC):
         pass
 
     @abstractmethod
-    def reset_password(self, token, email, new_password):
+    def reset_password(self, token: str, email: str, new_password: str):
         """
         This method is abstract.
 

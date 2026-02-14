@@ -186,6 +186,10 @@ class DefaultConfig(object):
     # Minimum number of characters for the search (defaults to 3)
     WHOOSHEE_MIN_STRING_LEN = 3
 
+    # Forms
+    # ------------------------------
+    WTF_I18N_ENABLED = False  # We provide our own translations
+
     # Auth
     # ------------------------------
     LOGIN_VIEW = "auth.login"

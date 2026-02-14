@@ -28,6 +28,8 @@ from sqlalchemy.orm import (
 from flaskbb.extensions import db
 
 if t.TYPE_CHECKING:
+    from flask_sqlalchemy.session import Session
+
     from flaskbb.user.models import User
 
 from ..core.exceptions import PersistenceError
@@ -101,7 +103,7 @@ class CRUDMixin(object):
         return db.session.execute(stmt).scalar_one()
 
     @classmethod
-    def create(cls, **kwargs):
+    def create(cls, **kwargs: t.Any):
         instance = cls(**kwargs)
         return instance.save()
 
@@ -118,7 +120,7 @@ class CRUDMixin(object):
         return self
 
 
-class UTCDateTime(types.TypeDecorator):
+class UTCDateTime(types.TypeDecorator[object]):
     impl = types.DateTime
     cache_ok = True
 
@@ -153,15 +155,15 @@ class HideableMixin(object):
     @declared_attr
     def hidden_by_id(cls) -> Mapped[int | None]:
         return mapped_column(
-            sa.ForeignKey("users.id", name="fk_{}_hidden_by".format(cls.__name__)),
+            sa.ForeignKey("users.id", name="fk_{}_hidden_by".format(cls.__name__)),  # pyright: ignore
             nullable=True,
         )
 
     @declared_attr
     def hidden_by(cls) -> Mapped["User"]:
-        return relationship("User", uselist=False, foreign_keys=[cls.hidden_by_id])
+        return relationship("User", uselist=False, foreign_keys=[cls.hidden_by_id])  # pyright: ignore
 
-    def hide(self, user: "User", *args, **kwargs) -> t.Self | None:
+    def hide(self, user: "User", *args: t.Any, **kwargs: t.Any) -> t.Self | None:
         from flaskbb.utils.helpers import time_utcnow
 
         self.hidden_by = user
@@ -169,7 +171,7 @@ class HideableMixin(object):
         self.hidden_at = time_utcnow()
         return self
 
-    def unhide(self, *args, **kwargs) -> t.Self | None:
+    def unhide(self, *args: t.Any, **kwargs: t.Any) -> t.Self | None:
         self.hidden_by = None
         self.hidden = False
         self.hidden_at = None
@@ -180,7 +182,7 @@ class HideableCRUDMixin(HideableMixin, CRUDMixin):
     pass
 
 
-def try_commit(session, message="Error while saving"):
+def try_commit(session: Session, message: str = "Error while saving"):
     try:
         session.commit()
     except Exception:

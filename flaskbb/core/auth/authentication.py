@@ -7,7 +7,10 @@ flaskbb.core.auth.authentication
 """
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from flaskbb.user.models import User
 from ..exceptions import BaseFlaskBBError
 
 
@@ -19,7 +22,7 @@ class StopAuthentication(BaseFlaskBBError):
     :param reason str: The reason why authentication was halted
     """
 
-    def __init__(self, reason):
+    def __init__(self, reason: str):
         super(StopAuthentication, self).__init__(reason)
         self.reason = reason
 
@@ -31,7 +34,7 @@ class ForceLogout(BaseFlaskBBError):
     :param reason str: The reason why the user was force logged out
     """
 
-    def __init__(self, reason):
+    def __init__(self, reason: str):
         super(ForceLogout, self).__init__(reason)
         self.reason = reason
 
@@ -46,7 +49,7 @@ class AuthenticationManager(ABC):
     """
 
     @abstractmethod
-    def authenticate(self, identifier, secret):
+    def authenticate(self, identifier: str, secret: str) -> "User":
         """
         This method is abstract.
 
@@ -90,7 +93,7 @@ class AuthenticationProvider(ABC):
     """
 
     @abstractmethod
-    def authenticate(self, identifier, secret):
+    def authenticate(self, identifier: str, secret: str) -> "User":
         """
         This method is abstract.
 
@@ -102,7 +105,7 @@ class AuthenticationProvider(ABC):
         """
         pass
 
-    def __call__(self, identifier, secret):
+    def __call__(self, identifier: str, secret: str) -> "User":
         return self.authenticate(identifier, secret)
 
 
@@ -120,7 +123,7 @@ class AuthenticationFailureHandler(ABC):
     """
 
     @abstractmethod
-    def handle_authentication_failure(self, identifier):
+    def handle_authentication_failure(self, identifier: str):
         """
         This method is abstract.
 
@@ -129,7 +132,7 @@ class AuthenticationFailureHandler(ABC):
         """
         pass
 
-    def __call__(self, identifier):
+    def __call__(self, identifier: str):
         self.handle_authentication_failure(identifier)
 
 
@@ -156,7 +159,7 @@ class PostAuthenticationHandler(ABC):
     """
 
     @abstractmethod
-    def handle_post_auth(self, user):
+    def handle_post_auth(self, user: "User"):
         """
         This method is abstact.
 
@@ -165,7 +168,7 @@ class PostAuthenticationHandler(ABC):
         """
         pass
 
-    def __call__(self, user):
+    def __call__(self, user: "User"):
         self.handle_post_auth(user)
 
 
@@ -180,7 +183,7 @@ class ReauthenticateManager(ABC):
     """
 
     @abstractmethod
-    def reauthenticate(self, user, secret):
+    def reauthenticate(self, user: "User", secret: str):
         """
         This method is abstract.
 
@@ -190,7 +193,7 @@ class ReauthenticateManager(ABC):
         """
         pass
 
-    def __call__(self, user, secret):
+    def __call__(self, user: "User", secret: str):
         pass
 
 
@@ -229,7 +232,7 @@ class ReauthenticateProvider(ABC):
     """
 
     @abstractmethod
-    def reauthenticate(self, user, secret):
+    def reauthenticate(self, user: "User", secret: str) -> bool | None:
         """
         This method is abstract.
 
@@ -241,8 +244,8 @@ class ReauthenticateProvider(ABC):
 
         pass
 
-    def __call__(self, user, secret):
-        self.handle_reauth(user, secret)
+    def __call__(self, user: "User", secret: str):
+        self.reauthenticate(user, secret)
 
 
 class ReauthenticateFailureHandler(ABC):
@@ -255,7 +258,7 @@ class ReauthenticateFailureHandler(ABC):
     """
 
     @abstractmethod
-    def handle_reauth_failure(self, user):
+    def handle_reauth_failure(self, user: "User"):
         """
         This method is abstract.
 
@@ -264,7 +267,7 @@ class ReauthenticateFailureHandler(ABC):
         """
         pass
 
-    def __call__(self, user):
+    def __call__(self, user: "User"):
         self.handle_reauth_failure(user)
 
 
@@ -279,7 +282,7 @@ class PostReauthenticateHandler(ABC):
     """
 
     @abstractmethod
-    def handle_post_reauth(self, user):
+    def handle_post_reauth(self, user: "User"):
         """
         This method is abstract.
 
@@ -288,5 +291,5 @@ class PostReauthenticateHandler(ABC):
         """
         pass
 
-    def __call__(self, user):
+    def __call__(self, user: "User"):
         self.handle_post_reauth(user)

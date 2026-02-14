@@ -9,6 +9,7 @@ Authorization requirements for FlaskBB.
 """
 
 import logging
+from typing import Any, override
 
 from flask_allows2 import And, Or, Permission, Requirement
 from sqlalchemy import select
@@ -25,14 +26,17 @@ class Has(Requirement):
     def __init__(self, permission: str):
         self.permission = permission
 
+    @override
     def __repr__(self):
         return "<Has({!s})>".format(self.permission)
 
+    @override
     def fulfill(self, user: User):
         return user.permissions.get(self.permission, False)
 
 
 class IsAuthed(Requirement):
+    @override
     def fulfill(self, user: User):
         return user.is_authenticated
 
@@ -42,6 +46,7 @@ class IsModeratorInForum(IsAuthed):
         self.forum_id = forum_id
         self.forum = forum
 
+    @override
     def fulfill(self, user: User):
         moderators = self._get_forum_moderators()
         return super(IsModeratorInForum, self).fulfill(
@@ -77,6 +82,7 @@ class IsSameUser(IsAuthed):
     def __init__(self, topic_or_post: Post | Topic | int | None = None):
         self._topic_or_post = topic_or_post
 
+    @override
     def fulfill(self, user: User):
         return (
             super(IsSameUser, self).fulfill(user) and user.id == self._determine_user()
@@ -109,6 +115,7 @@ class TopicNotLocked(Requirement):
         self._post = post
         self._post_id = post_id
 
+    @override
     def fulfill(self, user: User):
         return not any(self._determine_locked())
 
@@ -151,6 +158,7 @@ class ForumNotLocked(Requirement):
         self._forum = forum
         self._forum_id = forum_id
 
+    @override
     def fulfill(self, user: User):
         return self._is_forum_locked()
 
@@ -173,6 +181,7 @@ class ForumNotLocked(Requirement):
 
 
 class CanAccessForum(Requirement):
+    @override
     def fulfill(self, user: User):
         if not current_forum:
             raise FlaskBBError("Could not load forum data")
@@ -255,7 +264,7 @@ def has_permission(permission: str):
 
 
 def can_moderate(user: User, forum: Forum | int | None):
-    kwargs = {}
+    kwargs: dict[str, Any] = {}
 
     if isinstance(forum, int):
         kwargs["forum_id"] = forum
@@ -266,7 +275,7 @@ def can_moderate(user: User, forum: Forum | int | None):
 
 
 def can_post_reply(user: User, topic: Topic | int | None = None):
-    kwargs = {}
+    kwargs: dict[str, Any] = {}
 
     if isinstance(topic, int):
         kwargs["topic_id"] = topic
@@ -284,7 +293,7 @@ def can_post_reply(user: User, topic: Topic | int | None = None):
 
 
 def can_edit_post(user: User, topic_or_post: Topic | Post | int | None = None):
-    kwargs = {}
+    kwargs: dict[str, Any] = {}
 
     if isinstance(topic_or_post, int):
         kwargs["topic_id"] = topic_or_post
@@ -308,7 +317,7 @@ def can_edit_post(user: User, topic_or_post: Topic | Post | int | None = None):
 
 
 def can_post_topic(user: User, forum: Forum | int | None):
-    kwargs = {}
+    kwargs: dict[str, Any] = {}
 
     if isinstance(forum, int):
         kwargs["forum_id"] = forum
@@ -326,7 +335,7 @@ def can_post_topic(user: User, forum: Forum | int | None):
 
 
 def can_delete_topic(user: User, topic: Topic | int | None = None):
-    kwargs = {}
+    kwargs: dict[str, Any] = {}
 
     if isinstance(topic, int):
         kwargs["topic_id"] = topic

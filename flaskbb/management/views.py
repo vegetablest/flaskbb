@@ -9,7 +9,7 @@ This module handles the management views.
 :license: BSD, see LICENSE for more details.
 """
 
-import importlib
+import importlib.metadata
 import logging
 import sys
 
@@ -106,7 +106,7 @@ class ManagementSettings(MethodView):
         )
 
         # get all groups and plugins - used to build the navigation
-        all_groups = SettingsGroup.query.all()
+        all_groups = SettingsGroup.get_all()
         all_plugins = PluginRegistry.get_all(
             db.and_(PluginRegistry.values != None, PluginRegistry.enabled == True)
         )
@@ -124,7 +124,7 @@ class ManagementSettings(MethodView):
         form, old_settings, plugin_obj, active_nav = self._determine_active_settings(
             slug, plugin
         )
-        all_groups = SettingsGroup.query.all()
+        all_groups = SettingsGroup.get_all()
         all_plugins = PluginRegistry.get_all(
             db.and_(PluginRegistry.values != None, PluginRegistry.enabled == True)
         )

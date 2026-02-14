@@ -10,8 +10,10 @@ This module contains stuff for forms.
 """
 
 from enum import Enum
+from typing import Any, TypeVar
 
-from flask_wtf import FlaskForm
+from flask_babelplus import lazy_gettext as _
+from flask_wtf import FlaskForm, RecaptchaField
 from wtforms import (
     BooleanField,
     FloatField,
@@ -22,9 +24,31 @@ from wtforms import (
     validators,
 )
 
+from flaskbb.extensions import limiter
+
+C = TypeVar("C", bound=Any)
+
+
+def add_recaptcha_field(cls: C, only_on_ratelimit: bool = False) -> C:
+    def wrapper(*args: Any, **kwargs: Any) -> "C":
+        from flaskbb.utils.helpers import enforce_recaptcha
+        from flaskbb.utils.settings import flaskbb_config
+
+        if flaskbb_config["RECAPTCHA_ENABLED"]:
+            if (
+                not only_on_ratelimit
+                or only_on_ratelimit
+                and enforce_recaptcha(limiter)
+            ):
+                setattr(cls, "recaptcha", RecaptchaField(_("Captcha")))
+
+        return cls()
+
+    return wrapper  # pyright: ignore
+
 
 class FlaskBBForm(FlaskForm):
-    def populate_errors(self, errors):
+    def populate_errors(self, errors: list[tuple[str, str]]):
         for attribute, reason in errors:
             self.errors.setdefault(attribute, []).append(reason)
             field = getattr(self, attribute, None)

@@ -13,6 +13,7 @@ import inspect
 import warnings
 from abc import ABC
 from functools import wraps
+from typing import Any, Callable
 
 from flask_babelplus import gettext as _
 
@@ -37,7 +38,7 @@ class FlaskBBDeprecation(DeprecationWarning, FlaskBBWarning, ABC):
             version = (3, 0, 0)
     """
 
-    version = property(lambda self: None)
+    version: tuple[int, int, int]
 
 
 class RemovedInFlaskBB3(FlaskBBDeprecation):
@@ -48,7 +49,9 @@ class RemovedInFlaskBB3(FlaskBBDeprecation):
     version = (3, 0, 0)
 
 
-def deprecated(message="", category=RemovedInFlaskBB3):
+def deprecated(
+    message: str = "", category: type[FlaskBBDeprecation] = RemovedInFlaskBB3
+):
     """
     Flags a function or method as deprecated, should not be used on
     classes as it will break inheritance and introspection.
@@ -58,10 +61,10 @@ def deprecated(message="", category=RemovedInFlaskBB3):
         if provided must be a subclass of FlaskBBDeprecation.
     """
 
-    def deprecation_decorator(f):
+    def deprecation_decorator(f: Callable[..., None]):
         if not issubclass(category, FlaskBBDeprecation):
             raise ValueError(
-                "Expected subclass of FlaskBBDeprecation for category, got {}".format(  # noqa
+                "Expected subclass of FlaskBBDeprecation for category, got {}".format(
                     str(category)
                 )
             )
@@ -69,7 +72,7 @@ def deprecated(message="", category=RemovedInFlaskBB3):
         version = ".".join([str(x) for x in category.version])
 
         warning = _(
-            "%(name)s is deprecated and will be removed in version %(version)s.",  # noqa
+            "%(name)s is deprecated and will be removed in version %(version)s.",
             name=f.__name__,
             version=version,
         )
@@ -86,13 +89,15 @@ def deprecated(message="", category=RemovedInFlaskBB3):
         f.__doc__ = docstring
 
         @wraps(f)
-        def wrapper(*a, **k):
-            frame = inspect.currentframe().f_back
+        def wrapper(*a: Any, **k: Any):
+            frame = inspect.currentframe()
+            if not frame or not frame.f_back:
+                return f(*a, **k)
             warnings.warn_explicit(
                 warning,
                 category=category,
-                filename=inspect.getfile(frame.f_code),
-                lineno=frame.f_lineno,
+                filename=inspect.getfile(frame.f_back.f_code),
+                lineno=frame.f_back.f_lineno,
             )
             return f(*a, **k)
 

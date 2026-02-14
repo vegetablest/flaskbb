@@ -12,8 +12,9 @@ resetting the password of a user if he has lost his password
 
 import logging
 from datetime import datetime
+from typing import TYPE_CHECKING, Callable
 
-from flask import Blueprint, flash, g, redirect, request, url_for
+from flask import Blueprint, Flask, flash, g, redirect, request, url_for
 from flask.views import MethodView
 from flask_babelplus import gettext as _
 from flask_login import (
@@ -29,7 +30,6 @@ from flaskbb.auth.forms import (
     AccountActivationForm,
     ForgotPasswordForm,
     LoginForm,
-    LoginRecaptchaForm,
     ReauthForm,
     RegisterForm,
     RequestActivationForm,
@@ -38,7 +38,6 @@ from flaskbb.auth.forms import (
 from flaskbb.extensions import db, limiter, pluggy
 from flaskbb.utils.helpers import (
     anonymous_required,
-    enforce_recaptcha,
     format_timedelta,
     get_available_languages,
     redirect_or_next,
@@ -62,6 +61,13 @@ from .services import (
     reset_service_factory,
 )
 
+if TYPE_CHECKING:
+    from flaskbb.auth.services.activation import AccountActivator
+    from flaskbb.auth.services.authentication import PluginAuthenticationManager
+    from flaskbb.auth.services.password import ResetPasswordService
+    from flaskbb.auth.services.reauthentication import PluginReauthenticationManager
+    from flaskbb.auth.services.registration import RegistrationService
+
 logger = logging.getLogger(__name__)
 
 
@@ -77,12 +83,12 @@ class Logout(MethodView):
 class Login(MethodView):
     decorators = [anonymous_required]
 
-    def __init__(self, authentication_manager_factory):
+    def __init__(
+        self, authentication_manager_factory: Callable[[], PluginAuthenticationManager]
+    ):
         self.authentication_manager_factory = authentication_manager_factory
 
     def form(self):
-        if enforce_recaptcha(limiter):
-            return LoginRecaptchaForm()
         return LoginForm()
 
     def get(self):
@@ -110,7 +116,9 @@ class Reauth(MethodView):
     decorators = [login_required, limiter.exempt]
     form = ReauthForm
 
-    def __init__(self, reauthentication_factory):
+    def __init__(
+        self, reauthentication_factory: Callable[[], PluginReauthenticationManager]
+    ):
         self.reauthentication_factory = reauthentication_factory
 
     def get(self):
@@ -141,7 +149,7 @@ class Reauth(MethodView):
 class Register(MethodView):
     decorators = [anonymous_required, registration_enabled]
 
-    def __init__(self, registration_service_factory):
+    def __init__(self, registration_service_factory: Callable[[], RegistrationService]):
         self.registration_service_factory = registration_service_factory
 
     def form(self):
@@ -194,7 +202,9 @@ class ForgotPassword(MethodView):
     decorators = [anonymous_required]
     form = ForgotPasswordForm
 
-    def __init__(self, password_reset_service_factory):
+    def __init__(
+        self, password_reset_service_factory: Callable[[], ResetPasswordService]
+    ):
         self.password_reset_service_factory = password_reset_service_factory
 
     def get(self):
@@ -225,15 +235,17 @@ class ResetPassword(MethodView):
     decorators = [anonymous_required]
     form = ResetPasswordForm
 
-    def __init__(self, password_reset_service_factory):
+    def __init__(
+        self, password_reset_service_factory: Callable[[], ResetPasswordService]
+    ):
         self.password_reset_service_factory = password_reset_service_factory
 
-    def get(self, token):
+    def get(self, token: str):
         form = self.form()
         form.token.data = token
         return render_template("auth/reset_password.html", form=form)
 
-    def post(self, token):
+    def post(self, token: str):
         form = self.form()
         if form.validate_on_submit():
             try:
@@ -270,7 +282,7 @@ class RequestActivationToken(MethodView):
     decorators = [requires_unactivated]
     form = RequestActivationForm
 
-    def __init__(self, account_activator_factory):
+    def __init__(self, account_activator_factory: Callable[[], AccountActivator]):
         self.account_activator_factory = account_activator_factory
 
     def get(self):
@@ -300,10 +312,10 @@ class RequestActivationToken(MethodView):
 class AutoActivateAccount(MethodView):
     decorators = [requires_unactivated]
 
-    def __init__(self, account_activator_factory):
+    def __init__(self, account_activator_factory: Callable[[], AccountActivator]):
         self.account_activator_factory = account_activator_factory
 
-    def get(self, token):
+    def get(self, token: str):
         activator = self.account_activator_factory()
 
         try:
@@ -341,7 +353,7 @@ class ActivateAccount(MethodView):
     decorators = [requires_unactivated]
     form = AccountActivationForm
 
-    def __init__(self, account_activator_factory):
+    def __init__(self, account_activator_factory: Callable[[], AccountActivator]):
         self.account_activator_factory = account_activator_factory
 
     def get(self):
@@ -385,7 +397,7 @@ class ActivateAccount(MethodView):
 
 
 @impl(tryfirst=True)
-def flaskbb_load_blueprints(app):
+def flaskbb_load_blueprints(app: Flask):
     auth = Blueprint("auth", __name__)
 
     def login_rate_limit():

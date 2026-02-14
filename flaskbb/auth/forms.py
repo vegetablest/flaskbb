@@ -28,8 +28,7 @@ from wtforms.validators import (
     regexp,
 )
 
-from flaskbb.utils.fields import RecaptchaField
-from flaskbb.utils.forms import FlaskBBForm
+from flaskbb.utils.forms import FlaskBBForm, add_recaptcha_field
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +38,7 @@ is_valid_username = regexp(
 )
 
 
+@add_recaptcha_field
 class LoginForm(FlaskBBForm):
     login = StringField(
         _("Username or Email address"),
@@ -55,13 +55,9 @@ class LoginForm(FlaskBBForm):
     remember_me = BooleanField(_("Remember me"), default=False)
 
     submit = SubmitField(_("Login"))
-    recaptcha = HiddenField(_("Captcha"))
 
 
-class LoginRecaptchaForm(LoginForm):
-    recaptcha = RecaptchaField(_("Captcha"))
-
-
+@add_recaptcha_field
 class RegisterForm(FlaskBBForm):
     username = StringField(
         _("Username"),
@@ -89,8 +85,6 @@ class RegisterForm(FlaskBBForm):
 
     confirm_password = PasswordField(_("Confirm password"))
 
-    recaptcha = RecaptchaField(_("Captcha"))
-
     language = SelectField(_("Language"))
 
     accept_tos = BooleanField(
@@ -111,6 +105,7 @@ class ReauthForm(FlaskBBForm):
     submit = SubmitField(_("Refresh Login"))
 
 
+@add_recaptcha_field
 class ForgotPasswordForm(FlaskBBForm):
     email = StringField(
         _("Email address"),
@@ -119,8 +114,6 @@ class ForgotPasswordForm(FlaskBBForm):
             Email(),
         ],
     )
-
-    recaptcha = RecaptchaField(_("Captcha"))
 
     submit = SubmitField(_("Request Password"))
 

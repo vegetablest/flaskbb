@@ -10,6 +10,8 @@ store for plugins.
 :license: BSD, see LICENSE for more details.
 """
 
+from typing import Any
+
 from flask import flash, redirect, url_for
 from flask_babelplus import gettext as _
 from markupsafe import Markup
@@ -19,7 +21,9 @@ from flaskbb.plugins.models import PluginRegistry
 from flaskbb.utils.datastructures import TemplateEventResult
 
 
-def template_hook(name, silent=True, is_markup=True, **kwargs):
+def template_hook(
+    name: str, silent: bool = True, is_markup: bool = True, **kwargs: Any
+):
     """Calls the given template hook.
 
     :param name: The name of the hook.
@@ -44,7 +48,7 @@ def template_hook(name, silent=True, is_markup=True, **kwargs):
     return result
 
 
-def validate_plugin(name):
+def validate_plugin(name: str):
     """Tries to look up the plugin by name. Upon failure it will flash
     a message and abort. Returns the plugin module on success.
     """

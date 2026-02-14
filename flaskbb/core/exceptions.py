@@ -11,6 +11,8 @@ FlaskBB.
 :license: BSD, see LICENSE for more details
 """
 
+from typing import Any
+
 
 class BaseFlaskBBError(Exception):
     """
@@ -30,7 +32,7 @@ class ValidationError(BaseFlaskBBError):
         is invalid.
     """
 
-    def __init__(self, attribute: str, reason: list[tuple[str, str]]):
+    def __init__(self, attribute: str, reason: Any):
         self.attribute = attribute
         self.reason = reason
         super(ValidationError, self).__init__((attribute, reason))

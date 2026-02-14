@@ -81,7 +81,7 @@ class RegistrationPostProcessor(ABC):
     """
 
     @abstractmethod
-    def post_process(self, user: User):
+    def post_process(self, user: "User"):
         """
         This method is abstract.
 
@@ -90,7 +90,7 @@ class RegistrationPostProcessor(ABC):
         """
         pass
 
-    def __call__(self, user: User):
+    def __call__(self, user: "User"):
         self.post_process(user)
 
 

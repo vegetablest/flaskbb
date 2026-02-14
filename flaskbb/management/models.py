@@ -12,7 +12,7 @@ This module contains all management related models.
 import logging
 from typing import override
 
-from sqlalchemy import Enum, ForeignKey, PickleType, String, Text
+from sqlalchemy import Enum, ForeignKey, PickleType, String, Text, select
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from flaskbb.extensions import cache, db
@@ -74,10 +74,6 @@ class Setting(db.Model, CRUDMixin):
         return generate_settings_form(settings=group.settings)
 
     @classmethod
-    def get_all(cls) -> list["Setting"]:
-        return cls.query.all()
-
-    @classmethod
     def update(cls, settings):
         """Updates the cache and stores the changes in the
         database.
@@ -119,7 +115,7 @@ class Setting(db.Model, CRUDMixin):
 
     @classmethod
     @cache.cached(key_prefix="settings")
-    def as_dict(cls, from_group=None, upper=True):
+    def as_dict(cls, from_group: str | None = None, upper: bool = True):
         """Returns all settings as a dict. This method is cached. If you want
         to invalidate the cache, simply execute ``self.invalidate_cache()``.
 
@@ -128,15 +124,15 @@ class Setting(db.Model, CRUDMixin):
                       letters. Defaults to ``False``.
         """
 
-        settings = {}
+        settings: dict[str, PickleType] = {}
         result = None
         if from_group is not None:
-            result = first_or_404(
-                db.select(SettingsGroup).where(SettingsGroup.key == from_group)
+            group: SettingsGroup = first_or_404(
+                select(SettingsGroup).where(SettingsGroup.key == from_group)
             )
-            result = result.settings
+            result = group.settings
         else:
-            result = cls.query.all()
+            result = cls.get_all()
 
         for setting in result:
             if upper:

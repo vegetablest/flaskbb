@@ -16,7 +16,7 @@ import sys
 import time
 import warnings
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Callable
 
 from celery import Celery
 from flask import Flask, request
@@ -311,7 +311,7 @@ def configure_extensions(app: Flask):
 
 def configure_template_filters(app: Flask):
     """Configures the template filters."""
-    filters = {}
+    filters: dict[str, Callable[..., Any]] = {}
 
     filters["crop_title"] = crop_title
     filters["format_date"] = format_date
@@ -344,8 +344,10 @@ def configure_template_filters(app: Flask):
 
     app.jinja_env.filters.update(filters)
 
-    app.jinja_env.globals["run_hook"] = template_hook
-    app.jinja_env.globals["NavigationContentType"] = NavigationContentType
+    jinja_globals: dict[str, Callable[..., Any]] = {}
+    jinja_globals["run_hook"] = template_hook
+    jinja_globals["NavigationContentType"] = NavigationContentType
+    app.jinja_env.globals.update(jinja_globals)
 
     pluggy.hook.flaskbb_jinja_directives(app=app)
 

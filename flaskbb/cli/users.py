@@ -37,7 +37,9 @@ def users():
     help="The group of the user.",
     type=click.Choice(["admin", "super_mod", "mod", "member"]),
 )
-def new_user(username, email, password, group):
+def new_user(
+    username: str | None, email: str | None, password: str | None, group: str | None
+):
     """Creates a new user. Omit any options to use the interactive mode."""
     try:
         user = prompt_save_user(username, email, password, group)
